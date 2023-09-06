@@ -1,0 +1,36 @@
+{
+  "name": "fxrm",
+  "version": "0.0.1",
+  "description": "Enhances native forms to support touched state, custom validation, and more.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsup",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "tsup": {
+    "entry": [
+      "src/index.ts"
+    ],
+    "splitting": false,
+    "sourcemap": true,
+    "clean": true
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@tsconfig/recommended": "^1.0.2",
+    "@types/react": "^18.2.21",
+    "react": ">=16.14",
+    "tsup": "^7.2.0",
+    "typescript": "^5.2.2"
+  },
+  "peerDependencies": {
+    "react": ">=16.14"
+  },
+  "dependencies": {
+    "lodash.escape": "^4.0.1",
+    "use-sync-external-store": "^1.2.0"
+  }
+}
