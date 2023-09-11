@@ -122,7 +122,7 @@ function ExampleForm() {
 
   // can provide `defaultValues` so that `fields` has values on initial render; `fxrm.value()` will return `''` otherwise
   const defaultValues = { username: '', password: '' };
-  const { form, fields } = useFxrm<Form>('login', { defaultValues, renderOn: 'change' /* or 'input' */, validateSchema: schema });
+  const form = useFxrm<Form>('login', { defaultValues,  /* or 'input' */, validateSchema: schema });
 
   // note: will probably have to persist all `fields` information to `useSyncExternalStore` so that it's concurrent-mode safe;
   // don't read directly from DOM during render
@@ -147,7 +147,7 @@ function ExampleForm() {
   )
 }
 
-function PasswordInput() {
+function TextField({ name }) {
   const field = useFxrmField('password'); // gets form name, initial value from context
 
   return (
