@@ -43,6 +43,20 @@ type FieldElement =
   | HTMLTextAreaElement
   | RadioNodeList;
 
+class FieldData {
+  name: string;
+  value: unknown = '';
+  errors?: Array<string>;
+  touched = false;
+  changed = false;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+
+}
+
 class FieldObserver {
   // el?: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
   listeners: Array<{ cb(fo: FieldObserver): void; on: BitField }> = [];
@@ -93,7 +107,20 @@ class FieldObserver {
   }
 }
 
+/**
+ * Data structure: global map, of field names to field observers. Each observer
+ * stores the ID of the form, or a generated ID associated with the reference
+ * to the form element, or null if the field doesn't have an associated form.
+ * 
+ * How does `value()` work before render result is out? It returns empty or
+ * initial from context, duh! So likewise we can get form ID from context whenever
+ * it's actually needed. In SSR, it would still need to be provided sometimes.
+ * I don't like the design where existing content could throw when new content
+ * is added with the same field name, but framework integrations can generate an
+ * ID if it's not provided and encourage users to assign it to the <form> element.
+ */
 const fields = new Map<string, FieldObserver | Array<FieldObserver>>();
+const subscribers = new Map<string, Array<FieldObserver>>();
 
 const register = () => {
   const de = document.documentElement;

@@ -87,19 +87,19 @@ export type DeepValue<T, TProp> = T extends Record<string | number, any>
     : T[TProp & string]
   : never;
 
-  type Example = {
-    foo: string,
-    bar: {
-      baz: string,
-      quux: number,
-      asdg: Date,
-      asdgh: [string, number, { qwreyer: number, qwehjdfh: string }],
-      sdfh: Array<{ foo: string }>
-    }
-  }
-type DK = DeepKeys<Example>
-type DV = DeepValue<Example, 'bar.sdfh.8'>
+//   type Example = {
+//     foo: string,
+//     bar: {
+//       baz: string,
+//       quux: number,
+//       asdg: Date,
+//       asdgh: [string, number, { qwreyer: number, qwehjdfh: string }],
+//       sdfh: Array<{ foo: string }>
+//     }
+//   }
+// type DK = DeepKeys<Example>
+// type DV = DeepValue<Example, 'bar.sdfh.8'>
 
-type IT = AllowedIndexes<[string, number]>
+// type IT = AllowedIndexes<[string, number]>
 
-type TF = unknown extends {} ? true : false
+// type TF = unknown extends {} ? true : false
