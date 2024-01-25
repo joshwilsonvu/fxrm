@@ -108,6 +108,7 @@ the simplicity of a native-like API.
 import React from 'react';
 import { z } from 'zod';
 import * as fxrm from 'fxrm';
+import '@fxrm/zod';
 import { useFxrm } from '@fxrm/react';
 
 const schema = z.object({
@@ -122,7 +123,7 @@ function ExampleForm() {
 
   // can provide `defaultValues` so that `fields` has values on initial render; `fxrm.value()` will return `''` otherwise
   const defaultValues = { username: '', password: '' };
-  const form = useFxrm<Form>('login', { defaultValues,  /* or 'input' */, validateSchema: schema });
+  const form = useFxrm<Form>('login', { defaultValues,  /* or 'input' */, validateZod: schema });
 
   // note: will probably have to persist all `fields` information to `useSyncExternalStore` so that it's concurrent-mode safe;
   // don't read directly from DOM during render

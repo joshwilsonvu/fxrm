@@ -63,43 +63,73 @@ type AllowedIndexes<
   ? AllowedIndexes<Tail, Keys | Tail["length"]>
   : Keys;
 
-export type DeepKeys<T> = unknown extends T
-  ? keyof T
-  : object extends T
+/** All dot-separate paths for this type, including numbers. */
+export type DeepKeys<T> = (unknown extends T // if T is wider than unknown (any)
+  ? keyof T & string // shrug?
+  : object extends T // if T is wider than object
   ? string
-  : T extends readonly any[] & IsTuple<T>
-  ? AllowedIndexes<T> | DeepKeysPrefix<T, AllowedIndexes<T>>
-  : T extends any[]
-  ? DeepKeys<T[number]>
-  : T extends Date
+  : T extends ((...params: any[]) => any) | Date
   ? never
+  : T extends IsTuple<T>
+  ? AllowedIndexes<T> | DeepKeysPrefix<T, AllowedIndexes<T>>
+  : T extends readonly any[]
+  ? number | DeepKeysPrefix<T, number>
   : T extends object
-  ? (keyof T & string) | DeepKeysPrefix<T, keyof T>
-  : never;
+  ? (keyof T & (string | number)) | DeepKeysPrefix<T, keyof T>
+  : never) &
+  (string | number); // shouldn't be needed but helps
 
 type DeepKeysPrefix<T, TPrefix> = TPrefix extends keyof T & (number | string)
-  ? `${TPrefix}.${DeepKeys<T[TPrefix]> & string}`
+  ? `${TPrefix}.${DeepKeys<T[TPrefix]> & (string | number)}`
   : never;
 
-export type DeepValue<T, TProp> = T extends Record<string | number, any>
+/** Given any key from DeepKeys, get the type of the value at that possibly nested key. */
+export type DeepValue<T, TProp> = boolean extends (
+  T extends never ? true : false
+)
+  ? // if T is any
+    any
+  : T extends ((...params: any[]) => any) | Date
+  ? never
+  : T extends readonly any[]
+  ? TProp extends `${infer TBranch extends number}.${infer TDeepProp}`
+    ? DeepValue<T[TBranch], TDeepProp>
+    : never
+  : T extends Record<string | number, any>
   ? TProp extends `${infer TBranch}.${infer TDeepProp}`
     ? DeepValue<T[TBranch], TDeepProp>
-    : T[TProp & string]
+    : T[TProp & (string | number)]
   : never;
 
-//   type Example = {
-//     foo: string,
-//     bar: {
-//       baz: string,
-//       quux: number,
-//       asdg: Date,
-//       asdgh: [string, number, { qwreyer: number, qwehjdfh: string }],
-//       sdfh: Array<{ foo: string }>
-//     }
-//   }
-// type DK = DeepKeys<Example>
-// type DV = DeepValue<Example, 'bar.sdfh.8'>
-
-// type IT = AllowedIndexes<[string, number]>
-
 // type TF = unknown extends {} ? true : false
+export type Prettify<T> = {
+  [K in keyof T]: T[K];
+} & {};
+
+type T = DeepKeys<{
+    foo: {
+      bar: [];
+      baz: Array<number>;
+      quux: Date;
+    };
+    1: number;
+    asdg: () => void;
+    asdgh: any;
+    sdfh: unknown;
+    53: [12, unknown, any, never, "sdfh"];
+  }>
+
+/** To use DeepKeys with a recursive type, use DeepKeys<LimitDepth<RecursiveType>> */
+export type LimitDepth<
+  T,
+  TLength = 5,
+  TDepth extends any[] = []
+> = TDepth["length"] extends TLength
+  ? never
+  : T extends object
+  ? {
+      [K in keyof T]: LimitDepth<T[K], TLength, [any, ...TDepth]>;
+    }
+  : T extends Array<infer U>
+  ? Array<LimitDepth<U, TLength, [any, ...TDepth]>>
+  : T;

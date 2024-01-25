@@ -1,62 +1,28 @@
-import { useMemo, useReducer, useSyncExternalStore } from "react";
-import { getField, subscribe } from "./dom";
+import { useLayoutEffect, useMemo, useReducer } from "react";
+import { useSyncExternalStore } from 'use-sync-external-store/shim';
+import { FxrmSubscriber, type FieldInfo, type Setter } from "./core";
 
-const fieldSym: unique symbol = Symbol("field");
+const store = new Map<string, Map<string, FieldInfo>>();
+const setter: Setter = (formId, fieldName, attrs) => {
 
-interface FieldContext {
-  formId?: string;
 }
-interface FieldId extends FieldContext {
-  fieldName: string;
-}
-type FieldAccessor = {
-  toString(): string;
-  [fieldSym]: FieldId;
-};
 
-type FieldsAccessor<TForm> = TForm extends object
-  ? {
-      [K in keyof TForm]: FieldsAccessor<TForm[K]>;
-    } & FieldAccessor
-  : FieldAccessor;
-
-function createFieldsAccessor<TForm>(
-  fieldName = "",
-  context?: {
-    formId?: string;
-  }
-): FieldsAccessor<TForm> {
-  return new Proxy(
-    {},
-    {
-      get(target, property) {
-        if (property === fieldSym) {
-          // provide info to fxrm functions, opaque to all other code
-          return { fieldName, ...context };
-        }
-        if (property === Symbol.toPrimitive || property === "toString") {
-          // stringify to field name
-          return () => fieldName;
-        }
-        if (typeof property === "string") {
-          return createFieldsAccessor(
-            fieldName ? `${fieldName}.${property}` : property,
-            context
-          );
-        }
-        return undefined;
-      },
-      has(target, property) {
-        return typeof property === "string" || property === fieldSym;
-      },
-    }
-  ) as FieldsAccessor<TForm>;
-}
 
 const useFxrm = (options) => {
+  const subscriptionRef = useRef();
+  const getSubscription = () => {
+    if (!subscriptionRef.current) {
+      subscriptionRef.current = new FormSubscription()
+    }
+  }
+  const store = useSyncExternalStore()
   const rerender = useReducer(/*****/);
 
-  // renders should be pure, and you shouldnt
+  useLayoutEffect(() => {
+    // apply default values to inputs
+  }, []);
+
+  // renders should be pure, and you shouldn't
   // read or write from refs/mutable variables during render. but that's what we're going to do!
   // it's just a perf optimization,
   // the result will be consistent, because

@@ -28,6 +28,9 @@ devDependencies:
   '@types/react':
     specifier: ^18.2.21
     version: 18.2.21
+  '@types/use-sync-external-store':
+    specifier: ^0.0.4
+    version: 0.0.4
   '@vitest/browser':
     specifier: ^0.34.4
     version: 0.34.4(rollup@2.79.1)(vitest@0.34.4)
@@ -504,6 +507,10 @@ packages:
 
   /@types/scheduler@0.16.3:
     resolution: {integrity: sha512-5cJ8CB4yAx7BH1oMvdU0Jh9lrEXyPkar6F9G/ERswkCuvP4KQZfZkSjcMbAICCpQTN4OuZn8tz0HiKv9TGZgrQ==}
+    dev: true
+
+  /@types/use-sync-external-store@0.0.4:
+    resolution: {integrity: sha512-DMBc2WDEfaGsWXqH/Sk2oBaUkvlUwqgt/YEygpqX0MaiEjqR7afd1QgE4Pq2zBr/TRz0Mpu92eBBo5UQjtTD5Q==}
     dev: true
 
   /@types/which@2.0.2:

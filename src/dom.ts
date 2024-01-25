@@ -1,199 +1,161 @@
-// var toKey = (formId, ...fieldName) => {
-//   const escaped = [formId, fieldName].map((s) => s.replace(/[.:]/g, "\\$&"));
-//   return `${escaped[0]}:${escaped.slice(1).join(".")}`;
-// };
-// var fromKey = (key) => {
-//   return key.split(/(?<!\\)[.:]/).map((s) => s.replace(/\\([.:])/g, "$1"));
-// };
-
-// class FormObserver {
-//   fields: Map<string, FieldObserver>;
-
-//   constructor(public form: HTMLFormElement, public formId: string) {
-//     this.fields = new Map();
-//   }
-
-//   getField(fieldName: string) {
-//     let fieldObserver = this.fields.get(fieldName);
-//     if (!fieldObserver) {
-//       const field = this.form.elements.namedItem(fieldName);
-//       if (field == null || field instanceof HTMLFieldSetElement) return null;
-
-//       fieldObserver = new FieldObserver(this.formId, fieldName);
-//     }
-//     if (fieldObserver.el) return field;
-//   }
-
-//   markAccessed(fieldName: string) {
-//     let accessedField = this.accessedFields.get(fieldName);
-//     if (!accessedField) {
-//       accessedField = new FieldObserver(this.formId, fieldName);
-//       this.accessedFields.set(fieldName, accessedField);
-//     }
-//     return accessedField;
-//   }
-// }
-
 type FieldElement =
   | HTMLButtonElement
   | HTMLInputElement
-  | HTMLObjectElement
+  // | HTMLObjectElement
   | HTMLOutputElement
   | HTMLSelectElement
-  | HTMLTextAreaElement
-  | RadioNodeList;
+  | HTMLTextAreaElement;
 
-class FieldData {
-  name: string;
-  value: unknown = '';
-  errors?: Array<string>;
-  touched = false;
-  changed = false;
-
-  constructor(name: string) {
-    this.name = name;
+const FIELD_ELEMENT_TAG_NAMES = new Set([
+  "BUTTON",
+  "INPUT",
+  "OBJECT",
+  "OUTPUT",
+  "SELECT",
+  "TEXTAREA",
+]);
+const isFieldElement = (node: unknown): node is FieldElement => {
+  return (
+    node instanceof HTMLElement && FIELD_ELEMENT_TAG_NAMES.has(node.tagName)
+  );
+};
+const isRadioInput = (node: unknown): node is HTMLInputElement => {
+  return node instanceof HTMLInputElement && node.type === "radio";
+};
+const isCheckboxInput = (node: unknown): node is HTMLInputElement => {
+  {
+    return node instanceof HTMLInputElement && node.type === "checkbox";
   }
+};
 
 
-}
 
-class FieldObserver {
-  // el?: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-  listeners: Array<{ cb(fo: FieldObserver): void; on: BitField }> = [];
 
-  constructor(
-    public fieldName: string,
-    public el: FieldElement,
-    public formId?: string
-  ) {
-    if (!this.formId) {
-      const form = this.getForm();
-      this.formId = form?.id;
+
+// TODO make getters for accesses on each property that `tracked |= PROPERTY_FLAG`, no setters,
+// but this has to be on an individual subscription.
+
+export type FormInfo = {
+  id: string;
+  submitCount: number;
+};
+
+const changed = (fi: FieldInfo) => fi.value !== (fi.initialValue ?? "");
+
+const refresh = (
+  fi: FieldInfo,
+  options: { formId?: string; event?: "change" | "input" | "blur" | "focus" }
+) => {
+  const formId = options?.formId;
+  const event = options?.event;
+
+  // get a live NodeList if we don't have one
+  const nl = document.getElementsByName(fi.name);
+  const el = loadEl(nl, formId);
+
+  if (el) {
+    const value = loadValue(el);
+    const error = el.validationMessage;
+    if (value !== fi.value || error !== fi.error) {
+      return {
+        ...fi,
+        value,
+        error,
+      };
     }
   }
 
-  subscribe(cb: (fo: this) => void, on: BitField): void {
-    const listener = this.listeners.find((l) => l.cb === cb);
-    if (listener) {
-      listener.on |= on; // subscribe to everything in `on` if not already
-    } else {
-      this.listeners.push({ cb, on });
+  return fi;
+};
+
+/**
+ * 
+ * @param nl
+ * @param formId
+ * @returns
+ */
+const loadEl = (
+  nl: NodeListOf<HTMLElement>,
+  formId: string | undefined
+): FieldElement | undefined => {
+  /**
+   * A live NodeList of elements with name `name` (usually one).
+   *
+   * Live NodeLists are created lazily, and only query nodes when accessed. The browser invalidates
+   * the cache for this NodeList when DOM mutations that would affect it occur, so that the next access
+   * re-queries the nodes. By handling caching for us, this saves us a lot of code.
+   *
+   * The DOM is the ultimate source of truth for field values, but for integrating with UI frameworks
+   * and subscriptions, we need to copy DOM values to other fields so that initial data can be used before
+   * the DOM has been constructed.
+   *
+   * TODO: maybe don't put this in FieldData
+   */
+  for (const el of nl) {
+    if (isFieldElement(el) && el.form?.id === formId) {
+      return el;
     }
   }
+};
 
-  unsubscribe(cb: (fo: this) => void): void {
-    const index = this.listeners.findIndex(
-      ({ cb: listenerCb }) => listenerCb === cb
-    );
-    if (index > -1) {
-      this.listeners.splice(index, 1);
-    }
-  }
+/**
+ * Gets the value of a field element. If the element is a radio button, gets the value of the radio
+ * button with the same name that's checked, or ''.
+ * 
+ * Can't use this before rendering, or before mounting the element in a rerender; will have to fall
+ * back to default values.
+ */
+const loadValue = (el: FieldElement): string => {
+  if (isRadioInput(el)) {
+    if (el.checked) return el.value;
 
-  private notify(change: BitField) {
-    this.listeners.forEach(({ cb, on }) => {
-      if (change & on) {
-        cb(this);
+    const nl = document.getElementsByName(el.name);
+    for (const otherRadio of nl) {
+      if (
+        otherRadio !== el &&
+        isRadioInput(otherRadio) &&
+        otherRadio.checked &&
+        otherRadio.form?.id === el.form?.id
+      ) {
+        return otherRadio.value;
       }
-    });
+    }
+    return "";
+  }
+  if (isCheckboxInput(el)) {
+    return String(el.checked);
+  }
+  return el.value;
+};
+
+const FORM_ID_UNDEFINED = Symbol("form.id undefined");
+const forms = {};
+
+const formObservers = new Set<FormObserver>();
+
+/**
+ * Inspired by MutationObserver, *Observer browser APIs.
+ *
+ * Key point is that this class should do everything: expose a way to access fields in a type-safe way,
+ * start and stop tracking which fields are used and what data is used about each field, and fire the callback
+ * when any tracked changes occur. A React integration will just wire up the callback to useSES and determine
+ * when to track.
+ *
+ * Solid integration might not use this class and wrap the data in a store instead, TBD.
+ */
+export class FormObserver {
+  constructor(public callback: (formObserver: FormObserver) => void, public formId: string | undefined) {}
+
+  observe(name: string, on: number) {
+    formObservers.add(this);
   }
 
-  private getForm() {
-    if (this.el instanceof RadioNodeList) {
-      return (this.el[0] as HTMLInputElement | undefined)?.form;
-    } else {
-      return this.el.form;
-    }
+  disconnect() {
+    formObservers.delete(this);
   }
 }
 
-/**
- * Data structure: global map, of field names to field observers. Each observer
- * stores the ID of the form, or a generated ID associated with the reference
- * to the form element, or null if the field doesn't have an associated form.
- * 
- * How does `value()` work before render result is out? It returns empty or
- * initial from context, duh! So likewise we can get form ID from context whenever
- * it's actually needed. In SSR, it would still need to be provided sometimes.
- * I don't like the design where existing content could throw when new content
- * is added with the same field name, but framework integrations can generate an
- * ID if it's not provided and encourage users to assign it to the <form> element.
- */
-const fields = new Map<string, FieldObserver | Array<FieldObserver>>();
-const subscribers = new Map<string, Array<FieldObserver>>();
 
-const register = () => {
-  const de = document.documentElement;
-  const a = de.addEventListener.bind(de);
-  a("submit", onSubmit);
-  a("change", onChange);
-  a("input", onInput);
-  a("focusin", onFocusIn);
-  a("focusout", onFocusOut);
-};
 
-const unregister = () => {
-  const de = document.documentElement;
-  const r = de.removeEventListener.bind(de);
-  r("submit", onSubmit);
-  r("change", onChange);
-  r("input", onInput);
-  r("focusin", onFocusIn);
-  r("focusout", onFocusOut);
-};
 
-const onSubmit = (e: SubmitEvent) => {};
 
-const onChange = (e: Event) => {};
-
-const onInput = (e: Event) => {};
-
-const onFocusIn = (e: FocusEvent) => {};
-
-const onFocusOut = (e: FocusEvent) => {};
-
-const value = (formId: string, fieldName: string) => {
-  const fieldObserver = getField(formId, fieldName);
-};
-
-const getField = (fieldName: string, formId?: string | null): FieldObserver | null => {
-  const key = JSON.stringify([fieldName, formId]);
-  let fieldObserver = fields.get(key);
-  if (!fieldObserver) {
-    const form = document.forms.namedItem(formId); // prefers `id` but technically supports `name`
-    if (!form) {
-      return null;
-    }
-    const field = form.elements.namedItem(fieldName) as FieldElement | null;
-    if (
-      !field ||
-      !(field instanceof HTMLElement || field instanceof RadioNodeList)
-    ) {
-      return null;
-    }
-    fieldObserver = new FieldObserver(fieldName, field, formId);
-    fields.set(key, fieldObserver);
-  }
-  return fieldObserver;
-};
-
-/**
- * value: 1 << 0
- * errors: 1 << 1
- * touched: 1 << 2
- * dirty (touched and changed): 1 << 3
- * 
- * Doesn't quite address timing, i.e. on input vs on change, we'll get there
- */
-type BitField = number & {};
-const subscribe = (field: FieldId, on: BitField) => {
-  // TODO: add listener to be called for any changes, return unsubscribe fn
-};
-
-/*
-const form = (
-
-);
-*/
-
-export { register, unregister, getField, subscribe };

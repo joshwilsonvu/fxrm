@@ -25,6 +25,7 @@
     "@testing-library/user-event": "^14.4.3",
     "@tsconfig/recommended": "^1.0.2",
     "@types/react": "^18.2.21",
+    "@types/use-sync-external-store": "^0.0.4",
     "@vitest/browser": "^0.34.4",
     "playwright": "^1.37.1",
     "react": ">=16.14",
